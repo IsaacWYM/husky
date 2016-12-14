@@ -114,3 +114,9 @@ add_executable(AMAT affinity.cpp)
 target_link_libraries(AMAT ${husky})
 target_link_libraries(AMAT ${HUSKY_EXTERNAL_LIB})
 husky_default_properties(AMAT)
+
+# Triangle listing
+add_executable(Triangle triangle.cpp)
+target_link_libraries(Triangle ${husky})
+target_link_libraries(Triangle ${EXTERNAL_LIB})
+husky_default_properties(Triangle)
