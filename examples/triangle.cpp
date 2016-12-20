@@ -162,7 +162,7 @@ void triangle_listing() {
    
     //auto& triangle_set_list = husky::ObjListStore::create_objlist<TriangleSet>();
 
-    int vertex_total = 0;
+    int vertex_total =  0;
 
     auto parse_graph_input = [&vertex_list, &vertex_total](boost::string_ref& neighbour_list) {
         if (neighbour_list.size() == 0)
