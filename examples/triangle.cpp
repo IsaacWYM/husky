@@ -703,7 +703,7 @@ void triangle_listing() {
         }
     });
 
-    if ((num_triangle.get_value() - source_sink_flow_sum) > 1e-10) {
+    if ((3 * num_triangle.get_value() - source_sink_flow_sum) > 1e-10) {
         husky::base::log_msg("source_sink_flow_sum: " + to_string(source_sink_flow_sum));
         husky::base::log_msg("num_triangle: " + to_string(num_triangle.get_value()));
         husky::base::log_msg("********** Missing flow! ********** | ********** Missing flow! ********** | ********** Missing flow! ********** ");
