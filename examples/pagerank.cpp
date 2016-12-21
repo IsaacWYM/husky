@@ -83,6 +83,10 @@ void pagerank() {
             }
         });
     }
+   
+    husky::list_execute(vertex_list, [&](Vertex& v){
+       husky::base::log_info("Vertex " + std::to_string(v.id()) + " with pagerank score " + std::to_string(v.pr));
+    });
 }
 
 int main(int argc, char** argv) {
