@@ -17,7 +17,7 @@ using namespace std;
 
 // class Vertex;
 
-class VertexObj;
+// class VertexObj;
 
 // class TriangleObj;
 
@@ -224,7 +224,7 @@ void triangle_listing() {
         // track down the position of the firt neighbour with larger id than the one of the vertex itself.
         int neig_start = 0;
         while (neig_start < vertex.neighbours.size() && vertex.neighbours[neig_start] < vertex.id()) { neig_start++; }
-        husky::base::log_msg("In Vertex " + to_string(vertex.id()) + ", neighbours.size: " + to_string(vertex.neighbours.size()));
+        // husky::base::log_msg("In Vertex " + to_string(vertex.id()) + ", neighbours.size: " + to_string(vertex.neighbours.size()));
 
         // send to the vertices with messages with larger id() in a way that triangle ABC would ONLY be send by A to C in the form (A, B)
         // And upon receiving message, vertex C would check whether B is one of its neigbour. No need to check A as it is guaranteed.
@@ -233,7 +233,7 @@ void triangle_listing() {
             for (int vert_c_ctr = neig_start + 1; vert_c_ctr < vertex.neighbours.size(); vert_c_ctr++){
                 for (int vert_b_ctr = neig_start; vert_b_ctr < vert_c_ctr; vert_b_ctr++){
                     edge_push_channel.push(Edge(vertex.id(), vertex.neighbours[vert_b_ctr]), vertex.neighbours[vert_c_ctr]);
-                    husky::base::log_msg("Edge (" + to_string(vertex.id()) + ", " + to_string(vertex.neighbours[vert_b_ctr]) + ") push to vertex " + to_string(vertex.neighbours[vert_c_ctr]));
+                    // husky::base::log_msg("Edge (" + to_string(vertex.id()) + ", " + to_string(vertex.neighbours[vert_b_ctr]) + ") push to vertex " + to_string(vertex.neighbours[vert_c_ctr]));
                 }
             }
         }
@@ -274,8 +274,8 @@ void triangle_listing() {
             for (int neig_ctr = 0; neig_ctr < vertex.neighbours.size(); neig_ctr++){
                 if (vertex.neighbours[neig_ctr] == received_edges[edge_ctr].vert_b){
                     //cout << "Triangle (" << received_edges[edge_ctr].vert_a << " " << received_edges[edge_ctr].vert_b << " " << vertex.id() << ") found in thread " << thread_id << "\n";
-                    // husky::base::log_msg("Triangle (" + to_string(received_edges[edge_ctr].vert_a) + " " + to_string(received_edges[edge_ctr].vert_b) + " " 
-                    //     + to_string(vertex.id()) + ") found in thread " + to_string(thread_id) + " , with id " + to_string(thread_ctr * thread_total + thread_id) + "\n");
+                    husky::base::log_msg("Triangle (" + to_string(received_edges[edge_ctr].vert_a) + " " + to_string(received_edges[edge_ctr].vert_b) + " " 
+                        + to_string(vertex.id()) + ") found in thread " + to_string(thread_id) + " , with id " + to_string(thread_ctr * thread_total + thread_id + vertex_total + 2));
                     num_triangle.update(1);
                     int new_tri_id = thread_ctr * thread_total + thread_id + vertex_total + 2; // the number vertex_total + 1 is reserved for the sink's id
 
@@ -407,11 +407,27 @@ void triangle_listing() {
     excess_push_vertex_count.to_reset_each_iter();
     max_to_lift_height.to_reset_each_iter();
 
+    husky::lib::Aggregator<double> flow_sum_agg(0, [](double& a, const double& b){ a += b; });
+    flow_sum_agg.to_reset_each_iter();
+
     // bool need_to_push = true;
     husky::lib::Aggregator<bool> need_to_push(true, [](bool& a, const bool& b){ a = b; });
     while (iteration < iter_limit && need_to_push.get_value()){
 
-        husky::base::log_msg("Start Iteration " + to_string(iteration));
+        husky::base::log_msg("Start Iteration " + to_string(iteration) + " in thread " + to_string(husky::Context::get_global_tid()));
+        husky::list_execute(vertex_list, {}, {&ac}, [&](VertexObj& v){
+            husky::base::log_msg("Vertex " + to_string(v.id()) + ": excess " + to_string(v.excess) + " push_flag: " + to_string(v.push_flag) + " height: " + to_string(v.height));
+            flow_sum_agg.update(v.excess);
+        });
+
+        husky::base::log_msg("num_triangle: " + to_string(num_triangle.get_value()));
+        husky::base::log_msg("flow_sum_agg: " + to_string(flow_sum_agg.get_value()));
+        if (3 * num_triangle.get_value() == flow_sum_agg.get_value()){
+            husky::base::log_msg("****** flow preseved! ****** flow preseved! ****** flow preseved! ****** flow preseved! ****** flow preseved! ****** flow preseved! ******");
+        } else{
+            husky::base::log_msg("****** EARLY flow lost! ****** EARLY flow lost! ****** EARLY flow lost! ****** EARLY flow lost! ****** EARLY flow lost! ****** EARLY flow lost! ******");
+        }
+
         // push until no more is applicable
 
         while (need_to_push.get_value()) {
@@ -451,13 +467,19 @@ void triangle_listing() {
                     // if all push-able edges are used up and still with excess, set push-flag to 0 for notifying relabel
                     if (v.excess > 0){
                         v.push_flag = 0;
+                        husky::base::log_msg("Vertex " + to_string(v.id()) +  " has NOT YET pushed away its excess");
+                    } else{
+                        husky::base::log_msg("Vertex " + to_string(v.id()) +  " has pushed away ALL its excess");
                     }
                 }
             });
 
+
             // received flow and update excess and edge cap accordingly
             husky::list_execute(vertex_list, {&push_flow_channel}, {&ac}, [&](VertexObj& v){
                 vector<Flow> received_flow = push_flow_channel.get(v);
+
+                husky::base::log_msg("Entering the receiving flow session of Vertex " + to_string(v.id()) + " with received_flow of size " + to_string(received_flow.size()));
                 // special handle for the sink
                 if (v.id() == (vertex_total + 1) || v.id() == 0) {
                     for (auto flow: received_flow){
@@ -473,10 +495,9 @@ void triangle_listing() {
 
                     // update the cap and excess
                     v.excess += flow.incoming_flow;
-                    husky::base::log_msg("Vertex " + to_string(v.id()) + " now with excess " + to_string(v.excess));
                     v.edges[edge_pos].edge_cap += flow.incoming_flow;
-                    husky::base::log_msg("still passed");
                     husky::base::log_msg("Vertex " + to_string(v.id()) + " received " + to_string(flow.incoming_flow) + " unit flow from Vertex " + to_string(flow.incoming_id));
+                    husky::base::log_msg("Vertex " + to_string(v.id()) + " now with excess " + to_string(v.excess));
                 }
 
                 if (v.excess > 1e-10){
@@ -562,7 +583,7 @@ void triangle_listing() {
                     if (received_height_changes[rhc_pos].vid == v.id()) proposed_height = received_height_changes[rhc_pos].height;
                 }
 
-                husky::base::log_msg("In Vertex " + to_string(v.id()) + ", rhc_pos: " + to_string(rhc_pos) + " , received_height_changes.size(): " + to_string(received_height_changes.size()));
+                // husky::base::log_msg("In Vertex " + to_string(v.id()) + ", rhc_pos: " + to_string(rhc_pos) + " , received_height_changes.size(): " + to_string(received_height_changes.size()));
 
                 // the change can be applied
                 if (rhc_pos == received_height_changes.size()){
@@ -692,6 +713,9 @@ void triangle_listing() {
         for (auto node: dense_subgraph_nodes) included_node_list_str += (to_string(node) + " ");
         husky::base::log_msg(included_node_list_str);
     }
+
+    husky::base::log_msg("num_triangle: " + to_string(num_triangle.get_value()));
+    husky::base::log_msg("source_sink_flow_sum: " + to_string(source_sink_flow_sum));
 
     husky::base::log_msg("Algorithm ends");
 
