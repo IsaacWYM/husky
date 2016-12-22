@@ -118,5 +118,5 @@ husky_default_properties(AMAT)
 # Triangle listing
 add_executable(Triangle triangle.cpp)
 target_link_libraries(Triangle ${husky})
-target_link_libraries(Triangle ${EXTERNAL_LIB})
+target_link_libraries(Triangle ${HUSKY_EXTERNAL_LIB})
 husky_default_properties(Triangle)
