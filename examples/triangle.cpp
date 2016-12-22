@@ -445,8 +445,8 @@ void triangle_listing() {
             // locally declare the push flow channel
             // auto& push_flow_channel = husky::ChannelStore::create_push_channel<Flow>(vertex_list, vertex_list);
 
-            vector<husky::ChannelBase*>chs2 = {&ac, &push_flow_channel};
-            husky::list_execute(vertex_list, {}, chs2, [&](VertexObj& v){
+            // vector<husky::ChannelBase*>chs2 = {&ac, &push_flow_channel};
+            husky::list_execute(vertex_list, [&](VertexObj& v){
                 need_to_push.update(false);
                 if (v.excess > 1e-10 && v.push_flag == 1){
                     int admissable_edge_pos = 0;
@@ -487,10 +487,12 @@ void triangle_listing() {
                     }
                 }
             });
+            husky::lib::AggregatorFactory::sync();
 
 
             // received flow and update excess and edge cap accordingly
-            husky::list_execute(vertex_list, {&push_flow_channel}, {&ac}, [&](VertexObj& v){
+            // husky::list_execute(vertex_list, {&push_flow_channel}, {&ac}, [&](VertexObj& v){
+            husky::list_execute(vertex_list, [&](VertexObj& v){
                 // vector<Flow> received_flow = push_flow_channel.get(v);
                 vector<FlowMsg> received_flow = push_flow_channel.get(v);
 
@@ -531,6 +533,7 @@ void triangle_listing() {
                     }
                 } 
             });
+            husky::lib::AggregatorFactory::sync();
 
             husky::base::log_info("After the batch pushing, need_to_push: " + to_string(need_to_push.get_value()));
             // if (excess_push_vertex_count.get_value() != 0) need_to_push = true;           
